@@ -1,0 +1,17 @@
+chunks:
+- 161
+- 3
+compressor:
+  blocksize: 0
+  clevel: 5
+  cname: zstd
+  id: blosc
+  shuffle: 2
+dtype: <f4
+fill_value: 0.0
+filters: null
+order: C
+shape:
+- 40674
+- 3
+zarr_format: 2
