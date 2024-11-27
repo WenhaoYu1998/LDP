@@ -1,0 +1,164 @@
+###########################################
+
+# static params setting
+
+###########################################
+test: false
+env_type: 'robot_nav'
+robot_type: 'carlike'
+env_num: 1
+agent_num_per_env: 1
+batch_num_per_env: 1
+env_id: 0 # if you set env_num > 1, you should increase env_id when creating envs.
+
+env_name: 'image_ped_circle'
+cfg_name: 'image_ped_circle'
+cfg_type: 'yaml'
+
+control_hz: 0.4
+time_max: 200
+robot_radius: 0.17
+ped_leg_radius: 0.1
+ped_safety_space: 0.7
+laser_max: 6.0
+image_batch: 1
+image_size: [84, 84]
+ped_image_size: [48, 48]
+state_batch : 1
+state_dim : 3
+state_normalize: false
+laser_batch : 0
+act_dim: 2 # 2: v,w ; 3: v,w,beep
+discrete_action: False
+discrete_actions: [[0.0, -0.9], [0.0, -0.6], [0.0, -0.3], [0.0, 0.05], [0.0, 0.3], [0.0, 0.6], [0.0, 0.9],
+             [0.2, -0.9], [0.2, -0.6], [0.2, -0.3], [0.2, 0], [0.2, 0.3], [0.2, 0.6], [0.2, 0.9],
+             [0.4, -0.9], [0.4, -0.6], [0.4, -0.3], [0.4, 0], [0.4, 0.3], [0.4, 0.6], [0.4, 0.9],
+             [0.6, -0.9], [0.6, -0.6], [0.6, -0.3], [0.6, 0], [0.6, 0.3], [0.6, 0.6], [0.6, 0.9]]
+continuous_actions: [ [0, 0.6] , [-0.9, -0.9] ] #  linear velocity(v) range and rotation velocity(w) range
+circle_ranges: [1.8, 2.0] # only used in circle env
+
+max_ped: 10
+ped_vec_dim: 7
+ped_image_r: 0.3 # the radius of pedestrians in ped_image, paper:
+
+mean: 0
+std: 0.1
+SNR: 0.9
+noise_type: 'gaussian'  #'salt_pepper'  #
+
+###########################################
+# ROS CPP NODE PARAMS
+###########################################
+show_gui: true
+record_video: true
+video_episode: 1
+video_path: '/home/dayang/second_paper/collect_code/SAC_c_multi_agent/video/'
+video_name: 'static24_ddpm'
+sleep_t: 0.
+window_height: 500
+show_image_height: 125
+is_draw_step: true
+step_draw: 3
+use_laser: true
+range_total: 2000
+view_angle_begin: -3.1415926
+view_angle_end: 3.1415926
+view_min_dist: 0.0
+view_max_dist: 20.0
+beep_r: 1.0
+ped_ca_p: 1.0
+relation_ped_robo: 1
+
+#########################################
+bag_record_output_name: "test1.bag"
+bag_record_epochs: 5
+
+init_pose_bag_episodes: 1
+# init_pose_bag_name: "static24_6000episode.bag"
+##########################################
+
+# wrapper setting
+# NOTE: wrapper sequentially ！！！
+# for excemple,
+# wrapper: [A, B] means :
+#     env = B(A(env))
+
+###########################################
+
+wrapper: [
+  #'BagRecordWrapper',
+  'VelActionWrapper',
+  'TimeLimitWrapper',
+  'InfoLogWrapper',
+  'SensorsPaperRewardWrapper',
+  'MultiRobotCleanWrapper',
+  #'TestEpisodeWrapper',
+  # 'AddNoiseWrapper',
+  # 'StatePedVectorWrapper',
+  'StateBatchWrapper', # statebatch wrapper一般放在最后面
+  'ObsStateTmp',
+  "NeverStopWrapper", # 训练时候，不停的跑，这个要放在最后，因为reset对你之前的状态进行了修改
+
+
+]
+
+
+###########################################
+
+# agents setting
+
+###########################################
+
+global_map:
+  resolution: 0.1
+  map_file: room_16_empty.png
+view_map:
+  resolution: 0.015
+  width: 12
+  height: 12
+# robot:
+#   total: 1
+#   shape: ['rectangle','rectangle','rectangle','rectangle','rectangle','rectangle','rectangle','rectangle','circle']
+#   size: [[-0.5,0.5,-0.35,0.35], [-0.15,0.15,-0.1,0.1], [-0.15,0.15,-0.1,0.1], [-0.15,0.15,-0.1,0.1], [-0.15,0.15,-0.1,0.1], [-0.15,0.15,-0.1,0.1],[-0.15,0.15,-0.1,0.1], [-0.15,0.15,-0.1,0.1], [0, 0, 0.17]]
+#   begin_poses_type: ['range', 'range_circle', 'range_circle', 'range_circle','range_circle', 'range_circle', 'range_circle', 'range_circle','range', 'range', 'range', 'range']
+#   begin_poses: [[2.5, 14.5, 2.5, 14.5],[5.5, 5.5],[5.5, 5.5],[5.5, 5.5],[5.5, 5.5],[5.5, 5.5], [5.5, 5.5], [5.5, 5.5], [2.5, 8.5, 2.5, 8.5],[2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5]]
+#   target_poses_type: ['range', 'range_circle', 'range_circle', 'range_circle','range_circle', 'range_circle', 'range_circle', 'range_circle','range_view', 'range_view', 'range_view', 'range_view']
+#   target_poses: [[2.5, 14.5, 2.5, 14.5],[5.5, 5.5],[5.5, 5.5],[5.5, 5.5],[5.5, 5.5],[5.5, 5.5], [5.5, 5.5], [5.5, 5.5], [2.5, 8.5, 2.5, 8.5],[2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5]]
+#   # sensor_cfgs: [[0.14, 0], [0.14, 0], [0.14, 0], [0.14, 0], [0.14, 0], [0.14, 0], [0.14, 0], [0.14, 0], [0.14, 0], [0.14, 0], [0.14, 0], [0.14, 0]]
+# object:
+#   total: 24
+#   shape: ['circle',  'rectangle','circle',  'rectangle','circle',  'rectangle','circle',  'rectangle','circle',  'rectangle','circle',  'rectangle', 'circle',  'rectangle', 'circle',  'rectangle', 'circle',  'rectangle','circle',  'rectangle','circle',  'rectangle','circle',  'rectangle']
+#   size_range: [[0.5, 0.5],[-0.15,0.15,-0.15,0.15],[0.5, 0.5],[-0.25,0.25,-0.15,0.15],[0.3, 0.3],[-0.25,0.25,-0.35,0.35],[0.4, 0.4],[-0.15,0.15,-0.15,0.15],[0.3, 0.3],[-0.15,0.15,-0.15,0.15],[0.3, 0.3],[-0.15,0.15,-0.15,0.15],[0.3, 0.3],[-0.15,0.15,-0.15,0.15],[0.6, 0.6],[-0.25,0.25,-0.25,0.25], [0.3, 0.3],[-0.15,0.15,-0.15,0.15],[0.3, 0.3],[-0.15,0.15,-0.15,0.15],[0.3, 0.3],[-0.15,0.15,-0.15,0.15],[0.3, 0.3],[-0.15,0.15,-0.15,0.15]]
+#   poses_type: ['range', 'range', 'range', 'range', 'range',  'range','range',  'range','range',  'range','range',  'range','range',  'range','range',  'range', 'range', 'range', 'range', 'range', 'range',  'range','range',  'range']
+#   poses: [[2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5], [2.5, 14.5, 2.5, 14.5]]
+
+ped_sim:
+  total: 0
+  type: 'rvoscene' # you can choose pedscene, rvoscene, ervoscene
+  max_speed: [0.4,0.4,0.4,0.4,0.5,0.5,0.5,0.5,0.5]
+  shape: ['leg','leg','leg','leg','leg','leg','leg','leg','circle','circle','circle','circle','circle']
+  size: [[0, 0.1, 0.1], [0, 0.1, 0.1], [0, 0.1, 0.1], [0, 0.1, 0.1], [0, 0.1, 0.1], [0, 0.1, 0.1], [0, 0.1, 0.1], [0, 0.1, 0.1], [0, 0, 0.17]]
+  begin_poses_type: ['range','range','range','range','range_circle','range_circle','range_circle','range_circle', 'range', 'range', 'range', 'range','range', 'range', 'range', 'range']
+  begin_poses: [[2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5],[5.5,5.5], [5.5,5.5],[5.5,5.5],[5.5,5.5],[5.5,5.5],[5.5,5.5],[1.5, 9.5, 1.5, 9.5],[1.5, 9.5, 1.5, 9.5], [2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5],[2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5],[1.5, 9.5, 1.5, 9.5],[1.5, 9.5, 1.5, 9.5], [1.5, 9.5, 1.5, 9.5],[1.5, 9.5, 1.5, 9.5], [2.5, 8.5, 2.5, 8.5]]
+  target_poses_type: ['range','range','range','range','range_circle','range_circle','range_circle','range_circle','range_view', 'range_view', 'range_view', 'range_view','range_view', 'range_view', 'range_view', 'range_view']
+  target_poses: [[2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5],[2.5, 14.5, 2.5, 14.5],[5.5,5.5], [5.5,5.5],[5.5,5.5],[5.5,5.5],[5.5,5.5],[5.5,5.5],[1.5, 9.5, 1.5, 9.5],[1.5, 9.5, 1.5, 9.5], [2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5],[2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5], [2.5, 8.5, 2.5, 8.5],[1.5, 9.5, 1.5, 9.5],[1.5, 9.5, 1.5, 9.5], [1.5, 9.5, 1.5, 9.5],[1.5, 9.5, 1.5, 9.5], [2.5, 8.5, 2.5, 8.5]]
+  go_back: "random" # yes: all ped go back after hit the goal again and again, "random": random choose, "no": none of ped
+target_min_dist: 1.0 # min distance between start point to target point.
+
+node_id: 0
+
+init_pose_bag_name: 4798_failure_obs_list_static24.bag
+robot:
+  total: 1
+  shape: ['rectangle']
+  size: [[-0.5,0.5,-0.35,0.35]]
+  begin_poses_type: ['fix']
+  begin_poses: [[10.554541950547618,7.77407527002962,-2.645248195902086]]
+  target_poses_type: ['fix']
+  target_poses: [[12.509173376472347,12.14662316536138,0.0]]
+object:
+  total: 24
+  shape: ['circle', 'rectangle', 'circle', 'rectangle', 'circle', 'rectangle', 'circle', 'rectangle', 'circle', 'rectangle', 'circle', 'rectangle', 'circle', 'rectangle', 'circle', 'rectangle', 'circle', 'rectangle', 'circle', 'rectangle', 'circle', 'rectangle', 'circle', 'rectangle']
+  size_range: [[0.5,0.5],[-0.15,0.15,-0.15,0.15],[0.5,0.5],[-0.25,0.25,-0.15,0.15],[0.3,0.3],[-0.25,0.25,-0.35,0.35],[0.4,0.4],[-0.15,0.15,-0.15,0.15],[0.3,0.3],[-0.15,0.15,-0.15,0.15],[0.3,0.3],[-0.15,0.15,-0.15,0.15],[0.3,0.3],[-0.15,0.15,-0.15,0.15],[0.6,0.6],[-0.25,0.25,-0.25,0.25],[0.3,0.3],[-0.15,0.15,-0.15,0.15],[0.3,0.3],[-0.15,0.15,-0.15,0.15],[0.3,0.3],[-0.15,0.15,-0.15,0.15],[0.3,0.3],[-0.15,0.15,-0.15,0.15]]
+  poses_type: ['fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix', 'fix']
+  poses: [[7.014453642889485,8.819063350295117,-1.971918523213892],[8.374585275251697,12.069839980189734,0.26341182650633954],[5.297033536368433,3.1163004260092126,0.17193913516234052],[4.250087088769736,6.98998449472117,-2.2465499555675885],[11.452679457648134,9.095138557785976,0.24587894057783186],[7.979570696659382,8.517403281880064,-1.1786233205521386],[2.989897802139128,14.429715227045518,-0.6396463299738889],[2.560006054147297,4.794557080660018,0.9941310802699374],[14.114425253187795,6.654320241249519,3.0442938635147434],[9.475785755750247,5.783398507946175,1.894228308435133],[13.997049174038294,14.185184501870133,-0.9769633198972842],[7.9209973675138485,6.302366811544877,-0.24057134167921612],[4.267880303266163,3.691114182544435,-1.5957133903398975],[8.844555416479395,2.977671971585344,3.0707293411513885],[14.433095734435515,7.213795326689271,1.156461073848749],[14.0651092082832,11.032837486798526,-1.3005799829087517],[6.835703500950969,12.06007597318888,0.7643133243423389],[3.4223892247163397,7.611456121473765,2.9495041775213706],[8.415788322783177,9.660907629203516,-1.8220656309647911],[4.595240795859379,5.859672319708009,2.1541150794886756],[11.228362168737021,3.9947501405102517,2.829133145455742],[13.33251998360528,6.00617563068538,1.6859037339853944],[12.375305224404912,13.666889800689937,-1.3415828086710677],[5.7436996643256375,14.43386538967871,-2.645248195902086]]

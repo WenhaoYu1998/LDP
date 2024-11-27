@@ -1,0 +1,796 @@
+#include "img_env.h"
+// TODO vector env 的好处是什么？ 数据结构清晰
+// TODO python 环境进程只开一个进程就好了，大部分时间还是在c++，并且python里用vector env， 数据结构为numpy也很快。
+
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <cmath>
+#include <ctime>
+
+ImgEnv::ImgEnv()
+{
+
+    pub_record_ = false;
+    private_nh = ros::NodeHandle("~");
+    episode_res_pub_ = private_nh.advertise<comn_pkg::EpRes>("episode_res", 100);
+    ROS_INFO("NAME:%s", episode_res_pub_.getTopic().c_str());
+    _init_colors();
+
+    ROS_INFO("Wait for the python environment to initialize!");
+}
+
+void ImgEnv::_init_colors(){
+    colors_.push_back(Vec3b(255, 179, 0)); // vivid_yellow
+    colors_.push_back(Vec3b(128, 62, 117)); // strong_purple
+    colors_.push_back(Vec3b(255, 104, 0)); // vivid_orange
+    colors_.push_back(Vec3b(166, 189, 215)); // very_light_blue
+    colors_.push_back(Vec3b(193, 0, 32)); // vivid_red
+    colors_.push_back(Vec3b(206, 162, 98)); // grayish_yellow
+    colors_.push_back(Vec3b(129, 112, 102)); // medium_gray
+    colors_.push_back(Vec3b(0, 125, 52)); // vivid_green
+    colors_.push_back(Vec3b(246, 118, 142)); // strong_purplish_pink
+    colors_.push_back(Vec3b(0, 83, 138)); // strong_blue
+    colors_.push_back(Vec3b(255, 122, 92)); // strong_yellowish_pink
+    colors_.push_back(Vec3b(83, 55, 122)); // strong_violet
+    colors_.push_back(Vec3b(255, 142, 0)); // vivid_orange_yellow
+    colors_.push_back(Vec3b(179, 40, 81)); // strong_purplish_red
+    colors_.push_back(Vec3b(244, 200, 0)); // vivid_greenish_yellow
+    colors_.push_back(Vec3b(127, 24, 13)); // strong_reddish_brown
+    colors_.push_back(Vec3b(147, 170, 0)); // vivid_yellowish_green
+    colors_.push_back(Vec3b(89, 51, 21)); // deep_yellowish_brown
+    colors_.push_back(Vec3b(241, 58, 19)); // vivid_reddish_orange
+    colors_.push_back(Vec3b(35, 44, 22)); // dark_olive_green
+    // 倒车颜色存储
+    color_back_.push_back(Vec3b(255, 192, 203)); 
+    color_back_.push_back(Vec3b(255, 192, 203)); 
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203)); 
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203)); 
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203)); 
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203)); 
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203));
+    color_back_.push_back(Vec3b(255, 192, 203));
+
+}
+
+void ImgEnv::_init_param_from_py(comn_pkg::InitEnv::Request &req){
+    robot_view_width = req.view_width;
+    robot_view_height = req.view_height;
+    view_resolution_ = req.view_resolution;
+    state_dim_ = req.state_dim;
+    sleep_t_ = req.sleep_t;
+    window_height_ = req.window_height;
+    show_image_height_ = req.show_image_height;
+    is_show_gui_ = req.is_show_gui;
+    is_record_video_ = req.is_record_video;
+    video_episode_ = req.video_episode;
+    video_path_ = req.video_path;
+    video_name_ = req.video_name;
+    is_draw_step_ = req.is_draw_step;
+    step_draw_ = req.step_draw;
+    use_laser_ = req.use_laser;
+    range_total_ = req.range_total;
+    view_angle_begin_ = req.view_angle_begin;
+    view_angle_end_ = req.view_angle_end;
+    view_min_dist_ = req.view_min_dist;
+    view_max_dist_ = req.view_max_dist;
+    show_robot_num_ = int(window_height_ / show_image_height_);
+
+    pedscene_double_param["beep_r"] = beep_r = req.beep_r ;
+    pedscene_double_param["ped_ca_p"] = ped_ca_p = req.ped_ca_p;
+    pedscene_double_param["relation_ped_robo"] = relation_ped_robo = req.relation_ped_robo;
+    pedscene_double_param["step_hz_"] = step_hz_ = req.step_hz;
+}
+
+void ImgEnv::_init(comn_pkg::Env &msg_env)
+{
+    step_ = 0;
+    reset_ = 0;
+    // time_t now = time(0);
+    // char* timeString = ctime(&now);
+    // // 从字符串中提取分钟和秒
+    // char minuteStr[3];
+    // char secondStr[3];
+    // std::memcpy(minuteStr, timeString + 14, 2); // 从时间字符串中复制分钟部分
+    // std::memcpy(secondStr, timeString + 17, 2); // 从时间字符串中复制秒部分
+    // minuteStr[2] = '\0'; // 添加字符串结尾
+    // secondStr[2] = '\0'; // 添加字符串结尾
+
+    // // 将分钟和秒拼接成一个int类型的数字
+    // int minute = std::atoi(minuteStr);
+    // int second = std::atoi(secondStr);
+    // int combinedTime = minute * 100 + second;
+    episode_num_ = 0;
+    robots_.clear();
+    env_id = msg_env.env_id;
+    env_name = msg_env.env_name;
+    // init pedscene
+    SceneFactory scene_f = SceneFactory();// todo add boudaries
+
+    pedscene = scene_f.makeAscene(msg_env.ped_scene_type, pedscene_double_param, pedscene_vecdouble_param);
+
+    _init_env_map(msg_env);
+    _init_ped(msg_env.peds, peds_);
+    _init_robot(msg_env.robots, robots_);
+    
+
+    pedscene->addPed(msg_env.peds.size(), ped_max_speed_);
+    pedscene->addRobot(msg_env.robots.size());
+
+}
+
+void ImgEnv::_init_env_map(comn_pkg::Env &msg_env){
+    EnvMap_maps_ = EnvMap();
+
+    EnvMap_maps_.static_map_.resolution_ = msg_env.global_resolution;
+    EnvMap_maps_.static_map_.read_image(msg_env.map_file, view_resolution_);
+    EnvMap_maps_.obs_map_ = EnvMap_maps_.static_map_;
+}
+
+void ImgEnv::_init_robot(vector<comn_pkg::Agent> &msg_robots, vector<Agent> &robots_){
+    robot_total_ = msg_robots.size();
+    for (int j = 0; j < robot_total_; j++)
+    {
+            Agent robot(msg_robots[j].ktype, step_hz_);
+            robot.state_dim_ = state_dim_;
+            robot.init_view_map(robot_view_width, robot_view_height, view_resolution_);
+            vector<double> rob_size;
+            for (int k = 0; k < msg_robots[j].size.size(); k++)
+                rob_size.push_back(msg_robots[j].size[k]);
+            robot.init_shape(msg_robots[j].shape, rob_size);
+            robot.init_shape_beep(rob_size, beep_r);
+            robot.use_laser_ = use_laser_;
+            robot.range_total_ = range_total_;
+            robot.view_angle_begin_ = view_angle_begin_;
+            robot.view_angle_end_ = view_angle_end_;
+            robot.view_min_dist_ = view_min_dist_;
+            robot.view_max_dist_ = view_max_dist_;
+            robot.sensor_base_.x = msg_robots[j].sensor_cfg[0];
+            robot.sensor_base_.y = msg_robots[j].sensor_cfg[1];
+            robots_.push_back(robot);
+    }
+}
+
+void ImgEnv::_init_ped(vector<comn_pkg::Agent> &msg_peds, vector<PedAgent> &peds_){
+    ped_total_ = msg_peds.size();
+    for (int k = 0; k < ped_total_; k++)
+    {
+            PedAgent ped(msg_peds[k].ktype, step_hz_);
+            ped.max_speed = msg_peds[k].max_speed;
+            // TODO 下面3行一行搞定。
+            vector<double> ped_size;
+            for (int m = 0; m < msg_peds[k].size.size(); m++)
+                ped_size.push_back(msg_peds[k].size[m]);
+
+            ped.init_shape(msg_peds[k].shape, ped_size);
+            peds_.push_back(ped);
+            ped_max_speed_.push_back(ped.max_speed);
+    }
+}
+
+bool ImgEnv::_reset(comn_pkg::ResetEnv::Request &req, comn_pkg::ResetEnv::Response &res){
+    private_nh.param("show_gui", is_show_gui_, is_show_gui_);
+    private_nh.param("record_video", is_record_video_, is_record_video_);
+
+    // reset obs
+    pedscene->clearObs();
+    EnvMap_maps_.obs_map_ = EnvMap_maps_.static_map_;
+
+    for (int i = 0; i < req.obstacles.size(); i++)
+    {
+        // 提取python生成的obs信息
+        comn_pkg::Agent obs_msg = req.obstacles[i];
+        Agent obs("obs", view_resolution_);
+        // TODO 下面三行应该有一句话的方法
+        vector<double> obs_size;
+        for (int j = 0; j < obs_msg.size.size(); j++)
+            obs_size.push_back(obs_msg.size[j]);
+
+        obs.init_shape(obs_msg.shape, obs_size);
+        tf::Quaternion q(obs_msg.init_pose.orientation.x, obs_msg.init_pose.orientation.y,
+                         obs_msg.init_pose.orientation.z, obs_msg.init_pose.orientation.w);
+        double roll, pitch, yaw;
+        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+        Point3d obs_p(obs_msg.init_pose.position.x, obs_msg.init_pose.position.y, yaw);
+        obs.init_pose(obs_p);
+        // 障碍物占位符为0
+        obs.draw(EnvMap_maps_.obs_map_, 0, "world_map", obs.bbox_);
+        double pax, pay, pbx, pby;
+        obs.get_corners(pax, pay, pbx, pby);
+
+        pedscene->addObs(pax, pay, pbx, pby);
+    }
+
+    EnvMap_maps_.traj_map_ = EnvMap_maps_.obs_map_;
+
+    cvtColor(EnvMap_maps_.traj_map_.map_, EnvMap_maps_.traj_map_.map_, COLOR_GRAY2BGR);
+
+    // TODO reinit pub_record_
+    if (pub_record_)
+        {
+            EnvMap_maps_.peds_traj_map_ = EnvMap_maps_.obs_map_;
+
+            cvtColor(EnvMap_maps_.peds_traj_map_.map_, EnvMap_maps_.peds_traj_map_.map_, COLOR_GRAY2BGR);
+
+        }
+
+    std_msgs::Header header;
+    header.stamp = ros::Time::now();
+    img_bridge = cv_bridge::CvImage(header, sensor_msgs::image_encodings::TYPE_8UC1,
+                                        EnvMap_maps_.obs_map_.map_);
+    img_bridge.toImageMsg(eps_res_msg.obs_map);
+        eps_res_msg.env_name = env_name;
+        eps_res_msg.resolution = view_resolution_;
+        eps_res_msg.step_hz = step_hz_;
+        eps_res_msg.robots_res.resize(robot_total_);
+        eps_res_msg.peds_res.resize(ped_total_);
+
+
+    for (int i=0; i<req.peds.size(); i++)
+    {
+        // TODO env.peds = req.peds;
+        eps_res_msg.peds_res[i].info = req.peds[i];
+        eps_res_msg.peds_res[i].poses.clear();
+        eps_res_msg.peds_res[i].vs.clear();
+        eps_res_msg.peds_res[i].v_ys.clear();
+
+        comn_pkg::Agent ped_msg = req.peds[i];
+        eps_res_msg.peds_res[i].poses.push_back(ped_msg.init_pose);
+        tf::Quaternion q(ped_msg.init_pose.orientation.x, ped_msg.init_pose.orientation.y,
+                         ped_msg.init_pose.orientation.z, ped_msg.init_pose.orientation.w);
+        double roll, pitch, yaw;
+
+        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+        // 这里都是世界坐标系
+        Point3d ped_p(ped_msg.init_pose.position.x, ped_msg.init_pose.position.y, yaw);
+        peds_[i].init_pose(ped_p);
+
+        Point3d ped_goal(ped_msg.goal.x, ped_msg.goal.y, 0);
+        peds_[i].set_goal(ped_goal);
+
+        pedscene->setPedPos(i, ped_msg.init_pose.position.x, ped_msg.init_pose.position.y);
+        pedscene->setWayPoint(i, ped_msg.trajectory, ped_goal.x, ped_goal.y);
+        peds_[i].trajectory_.clear();
+        peds_[i].trajectory_ = ped_msg.trajectory;
+        peds_[i].cur_traj_index_ = 0;
+    }
+    
+    for (int i = 0; i < robot_total_; i++)
+    {
+        string robot_name = req.robots[i].name;
+        eps_res_msg.robots_res[i].info = req.robots[i];
+
+        eps_res_msg.robots_res[i].poses.clear();
+        eps_res_msg.robots_res[i].vs.clear();
+        eps_res_msg.robots_res[i].ws.clear();
+
+        robots_[i].run_trajectory_points_episode_x_.clear();
+        robots_[i].run_trajectory_points_episode_y_.clear();
+
+        comn_pkg::Agent robot_msg = req.robots[i];
+        eps_res_msg.robots_res[i].poses.push_back(robot_msg.init_pose);
+        tf::Quaternion q(robot_msg.init_pose.orientation.x, robot_msg.init_pose.orientation.y,
+                         robot_msg.init_pose.orientation.z, robot_msg.init_pose.orientation.w);
+
+        double roll, pitch, yaw;
+        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+        Point3d rob_p(robot_msg.init_pose.position.x, robot_msg.init_pose.position.y, yaw);
+        robots_[i].init_pose(rob_p);
+        Point3d rob_goal(robot_msg.goal.x, robot_msg.goal.y, 0);
+        robots_[i].set_goal(rob_goal);
+        robots_[i].is_collision_ = false;
+        robots_[i].is_arrive_ = false;
+        robots_[i].refresh_num_episode_ = 0;
+        robots_[i].run_dis_episode_ = 0;
+        robots_[i].cur_velocity_ = 0;
+        robots_[i].run_trajectory_points_episode_x_.push_back(robot_msg.init_pose.position.x);
+        robots_[i].run_trajectory_points_episode_y_.push_back(robot_msg.init_pose.position.y);
+        
+        // change position of robots in pedsim
+        double pax, pay, pbx, pby;
+        robots_[i].get_corners(pax, pay, pbx, pby);
+        // TODO reinit
+        if(relation_ped_robo == 1){
+            pedscene->setRobotPos(i, pax, pay, pbx, pby, robot_msg.init_pose.position.x, robot_msg.init_pose.position.y,
+            0.0, 0.0);
+        }
+        // cout << "robot_msg.goal.x:" << robot_msg.goal.x << "robot_msg.goal.y:" << robot_msg.goal.y << endl;
+        // cout << "robot_msg.init_pose.position.x:" << robot_msg.init_pose.position.x << "robot_msg.goal.y:" << robot_msg.init_pose.position.y << endl;
+        
+    }
+
+    pedscene->processObs();
+
+    view_agent(false);
+    get_states(res.robot_states);
+    // todo GUI
+    // cv::imwrite("/home/dayang/second_paper/collect_code/drlnav_env-main/map.jpg", EnvMap_maps_.peds_map_.map_);
+    if (is_show_gui_){
+        show_gui();
+    }
+
+    if(is_record_video_){
+        record_video();
+        reset_ += 1;
+    }
+    if(reset_ == video_episode_){
+        video_writer_.release();
+        reset_ = 0;
+        is_video_initialized_ = false;
+    }
+    episode_num_ += 1;
+    return true;
+}
+
+bool ImgEnv::_step(comn_pkg::StepEnv::Request &req, comn_pkg::StepEnv::Response &res)
+{   
+    vector<RVO::Vector2> next_goals;
+    // 蜂鸣器
+    for(int i = 0 ;i<peds_.size();i++){
+            if (peds_[i].arrive(peds_[i].trajectory_[peds_[i].cur_traj_index_]))
+                peds_[i].cur_traj_index_ += 1;
+            geometry_msgs::Point cur_ped_goal = peds_[i]._get_cur_goal();
+            next_goals.push_back(RVO::Vector2(cur_ped_goal.x, cur_ped_goal.y));
+        
+    }
+
+    vector<RVO::Vector2> ps_;
+    vector<float> rs_;
+
+        for (int j = 0; j < req.robots.size(); j++)
+        {
+            bool is_beep = false;
+            robots_[j].beep = 0;
+            if (rand() / double(RAND_MAX) < ped_ca_p){
+                // double beep_radius = req.robots[j].v_y;
+                double beep_radius = 0;
+                if (beep_radius > 0)
+                   {
+                        Point3d rpose = robots_[j].robot_pose_;
+                        ps_.push_back(RVO::Vector2(rpose.x, rpose.y));
+                        rs_.push_back(beep_r);
+                        is_beep = true;
+                        robots_[j].beep = 1;
+                   }
+            }
+            if (is_beep == false){
+                ps_.push_back(RVO::Vector2(0, 0));
+                rs_.push_back(0.0);
+            }
+        }
+
+    //行人场景
+    pedscene->step(next_goals, ps_, rs_);
+    for (int i = 0; i < peds_.size(); i++)
+    {
+
+        double vx, vy, yaw;
+        geometry_msgs::Pose p_msg;
+        pedscene->getNewPosAndVel(p_msg, i, vx, vy);
+        Point3d p_robot_pose_(p_msg.position.x, p_msg.position.y, yaw);
+        peds_[i].set_position(p_robot_pose_);
+        peds_[i].vx = vx;
+        peds_[i].vy = vy;
+        peds_[i].update_bbox();
+
+        eps_res_msg.peds_res[i].vs.push_back(vx);
+        eps_res_msg.peds_res[i].v_ys.push_back(vy);
+        eps_res_msg.peds_res[i].poses.push_back(p_msg);
+
+    }
+    
+    // 操作机器人
+    for (int i = 0; i < req.robots.size(); i++)
+    {
+        comn_pkg::Agent robot_msg = req.robots[i];
+        if (robot_msg.alive == true)
+        {
+            robots_[i].trajectory_visual(robot_msg.traj_v, robot_msg.traj_w, EnvMap_maps_.visual_map_, Vec3b(0, 0, 0), "world_map");
+            robots_[i].global_path_visual(robot_msg.global_path_x, robot_msg.global_path_y, EnvMap_maps_.visual_map_, Vec3b(0, 0, 0), "world_map");
+            
+            bool is_arrive = robots_[i].cmd(robot_msg.v, robot_msg.w);
+            ImgEnv::cur_velocity_global = robots_[i].cur_velocity_;
+            // ROS_INFO("cur_v : %f",robots_[i].cur_velocity_);
+
+            eps_res_msg.robots_res[i].vs.push_back(robot_msg.v);
+            eps_res_msg.robots_res[i].ws.push_back(robot_msg.w);
+            eps_res_msg.robots_res[i].v_ys.push_back(robot_msg.v_y);
+            tf::Quaternion q;
+            q.setRPY(0, 0, robots_[i].robot_pose_.z);
+            geometry_msgs::Pose p;
+            p.position.x = robots_[i].robot_pose_.x;
+            p.position.y = robots_[i].robot_pose_.y;
+            robots_[i].run_trajectory_points_episode_x_.push_back(robots_[i].robot_pose_.x);
+            robots_[i].run_trajectory_points_episode_y_.push_back(robots_[i].robot_pose_.y);
+            p.orientation.x = q.getX();
+            p.orientation.y = q.getY();
+            p.orientation.z = q.getZ();
+            p.orientation.w = q.getW();
+            eps_res_msg.robots_res[i].poses.push_back(p);
+        }
+
+        // 将当前的robot坐标返回
+        // [robot cmd 走一步之后, base已经更新]
+        double pax, pay, pbx, pby;
+        robots_[i].get_corners(pax, pay, pbx, pby);
+        // 对行人来说 机器人也是障碍物
+        if(relation_ped_robo == 1)
+            pedscene->setRobotPos(i, pax, pay, pbx, pby, robot_msg.init_pose.position.x, robot_msg.init_pose.position.y,
+            robots_[i].vx, robots_[i].vy);
+    }
+    step_ += 1;
+    view_agent(true);
+    get_states(res.robot_states);
+    if (is_show_gui_)
+        show_gui();
+    if(is_record_video_){
+        record_video();
+    }
+    sleep(sleep_t_);
+    return true;
+}
+
+bool ImgEnv::_end_ep(comn_pkg::EndEp::Request &req, comn_pkg::EndEp::Response &res)
+{
+//    ROS_INFO("ep finish.");
+    if (pub_record_)
+    {
+        std_msgs::Header header;
+        header.stamp = ros::Time::now();
+        img_bridge = cv_bridge::CvImage(header, sensor_msgs::image_encodings::TYPE_8UC3,
+                                        EnvMap_maps_.peds_traj_map_.map_);
+        img_bridge.toImageMsg(eps_res_msg.ped_map);
+    }
+
+    for (int i = 0; i < robot_total_; i++)
+        eps_res_msg.robots_res[i].result = req.robot_res[i];
+
+    episode_res_pub_.publish(eps_res_msg);
+
+    return true;
+}
+
+void ImgEnv::get_states(vector<comn_pkg::AgentState>& robot_states)
+{
+    for (int i = 0; i < robot_total_; i++)
+    {
+        comn_pkg::AgentState state_msg;
+        vector<double> state;
+        robots_[i].get_state(state);
+        
+        Point2i begin, end;
+        EnvMap_maps_.peds_map_.world2map(Point2d(robots_[i].robot_pose_.x, robots_[i].robot_pose_.y), begin);
+        EnvMap_maps_.peds_map_.world2map(Point2d(robots_[i].target_pose_.x, robots_[i].target_pose_.y), end);
+        int pose_visual_list[] = {begin.x, begin.y};
+        int target_pose_visual_list[] = {end.x, end.y};
+
+        vector<double> pose_visual_vector(pose_visual_list, pose_visual_list+2);
+        vector<double> target_pose_visual_vector(target_pose_visual_list, target_pose_visual_list+2);
+
+        state_msg.pose_visual.assign(pose_visual_vector.begin(), pose_visual_vector.end());
+        state_msg.target_pose_visual.assign(target_pose_visual_vector.begin(), target_pose_visual_vector.end());
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        double pose_list[] = {robots_[i].robot_pose_.x, robots_[i].robot_pose_.y, robots_[i].robot_pose_.z};
+        double target_pose_list[] = {robots_[i].target_pose_.x, robots_[i].target_pose_.y};
+
+        vector<double> pose_vector(pose_list, pose_list+3);
+        vector<double> target_pose_vector(target_pose_list, target_pose_list+2);
+        vector<double> velocity_a_vector;
+        velocity_a_vector.push_back(ImgEnv::cur_velocity_global);
+
+        state_msg.pose.assign(pose_vector.begin(), pose_vector.end());
+        state_msg.target_pose.assign(target_pose_vector.begin(), target_pose_vector.end());
+        state_msg.velocity_a.assign(velocity_a_vector.begin(), velocity_a_vector.end());
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        state_msg.state.assign(state.begin(), state.end());
+        state_msg.is_collision = robots_[i].is_collision_;
+        state_msg.is_arrive = robots_[i].is_arrive_;
+        state_msg.refresh_num_episode = robots_[i].refresh_num_episode_;
+        state_msg.run_dis_episode = robots_[i].run_dis_episode_;
+        state_msg.laser.assign(robots_[i].hits_.begin(), robots_[i].hits_.end());
+        state_msg.hits_x.assign(robots_[i].hit_points_x_.begin(), robots_[i].hit_points_x_.end());
+        state_msg.hits_y.assign(robots_[i].hit_points_y_.begin(), robots_[i].hit_points_y_.end());
+        state_msg.angular_map.assign(robots_[i].angular_map_.begin(), robots_[i].angular_map_.end());
+        state_msg.run_trajectory_points_episode_x.assign(robots_[i].run_trajectory_points_episode_x_.begin(), robots_[i].run_trajectory_points_episode_x_.end());
+        state_msg.run_trajectory_points_episode_y.assign(robots_[i].run_trajectory_points_episode_y_.begin(), robots_[i].run_trajectory_points_episode_y_.end());
+
+
+        std_msgs::Header header;
+        header.stamp = ros::Time::now();
+        img_bridge = cv_bridge::CvImage(header, sensor_msgs::image_encodings::TYPE_8UC1,
+                                        robots_[i].view_map_.map_);
+        img_bridge.toImageMsg(state_msg.view_map);
+
+        img_bridge = cv_bridge::CvImage(header, sensor_msgs::image_encodings::TYPE_8UC1,
+                                        robots_[i].global_map_.map_);
+        img_bridge.toImageMsg(state_msg.global_map);
+        // add ped_states
+
+        for(int j=0; j<ped_total_; j++){
+                comn_pkg::PedInfo ped_info;
+                tf::Transform tf_world_base = robots_[i].get_base_world().inverse();
+                tf::Vector3 ped_pos(peds_[j].robot_pose_.x,peds_[j].robot_pose_.y,0);
+                tf::Vector3 ped_pos_base=tf_world_base * ped_pos;
+
+                tf::Vector3 ped_v(peds_[j].vx, peds_[j].vy, 0);
+                tf_world_base.setOrigin(tf::Vector3(0,0,0));
+                tf::Vector3 ped_v_base=tf_world_base * ped_v;
+                ped_info.px=ped_pos_base.getX();
+                ped_info.py=ped_pos_base.getY();
+                ped_info.vx=ped_v_base.getX();
+                ped_info.vy=ped_v_base.getY();
+                ped_info.r_ = peds_[j].sizes_[2];
+                state_msg.pedinfo.push_back(ped_info);
+        }
+        robot_states.push_back(state_msg);
+    }
+}
+
+void ImgEnv::view_agent(bool is_draw_traj){
+    view_ped();
+    view_robot(is_draw_traj);
+}
+
+void ImgEnv::view_ped(){
+    EnvMap_maps_.peds_map_ =  EnvMap_maps_.obs_map_;
+    for(int i = 0;i < peds_.size(); i++){
+        string ped_name = peds_[i].name_;
+        // TODO 多态
+        if (peds_[i].shape_ == "circle")
+        {
+            peds_[i].draw(EnvMap_maps_.peds_map_, 1, "world_map", peds_[i].bbox_ );
+            peds_[i].draw_rgb(EnvMap_maps_.traj_map_, colors_[7] , "world_map", peds_[i].bbox_ );
+            if (pub_record_)
+            {
+                peds_[i].draw_rgb(EnvMap_maps_.peds_traj_map_, colors_[7] , "world_map", peds_[i].bbox_ );
+            }
+        }
+        else if (peds_[i].shape_ == "leg")
+        {
+            peds_[i].draw_leg(EnvMap_maps_.peds_map_, 1);
+            peds_[i].draw_leg_rgb(EnvMap_maps_.traj_map_, colors_[7]);
+            if (pub_record_)
+            {
+                peds_[i].draw_leg_rgb(EnvMap_maps_.peds_traj_map_, colors_[7]);
+            }
+        }
+    }
+}
+
+void ImgEnv::view_robot(bool is_draw_traj){
+    for (int i = 0; i < robot_total_; i++){
+    // TODO: using peds_map_;
+        robots_[i].global_map_ = EnvMap_maps_.peds_map_;
+        for (int j = 0; j < robot_total_; j++)
+        {
+            if (i != j)  // 在robot i 的全局地图里 标记robot j的占位符。
+                robots_[j].draw(robots_[i].global_map_, 2, "world_map", robots_[j].bbox_);
+        }
+        robots_[i].view(robots_[i].global_map_);
+        if (i == robot_total_ - 1)
+        {
+            if (is_draw_step_ && (step_ % step_draw_ == 0))
+            {
+                for (int j = 0; j < robot_total_; j++)
+                {
+                    // TODO: traj_map_ no peds
+                    if(robots_[i].robot_back_state == 1){
+                        robots_[j].draw_rgb(EnvMap_maps_.traj_map_, color_back_[j], "world_map", robots_[j].bbox_);
+                    }
+                    else{
+                        robots_[j].draw_rgb(EnvMap_maps_.traj_map_, colors_[j], "world_map", robots_[j].bbox_);
+                    }
+                }
+            }
+            EnvMap_maps_.visual_map_ = EnvMap_maps_.traj_map_;
+            vector<Point2d> head{ Point2d(0.4, 0), Point2d(0.5, 0), Point2d(0.6, 0), Point2d(0.7, 0), Point2d(0.8, 0) };
+            for (int j = 0; j < robot_total_; j++)
+            {
+                // gui 画 beep
+                if(robots_[j].beep == 1)
+                    robots_[j].draw_rgb(EnvMap_maps_.visual_map_, Vec3b(179, 40, 81), "world_map", robots_[j].bbox_beep_);
+
+                robots_[j].draw_rgb(EnvMap_maps_.visual_map_, Vec3b(0, 0, 0), "world_map", robots_[j].bbox_);
+                if (robots_[j].shape_ == "rectangle"){
+                    if(is_draw_traj){
+                        robots_[j].draw_line(EnvMap_maps_.visual_map_, colors_[10], "world_map", robots_[j].visual_traj_);
+                        // cout << robots_[j].visual_traj_ << endl;
+                        robots_[j].draw_line(EnvMap_maps_.visual_map_, colors_[11], "world_map", robots_[j].visual_global_path_);
+                    }
+                }
+                vector<Point2d> head;
+                if (robots_[j].shape_ == "circle")
+                {
+                    double r = robots_[j].sizes_[2];
+                    int head_total = r  * 1.3 / view_resolution_;
+                    for (int h = 0; h < head_total; h++)
+                    {
+                        head.push_back(Point2d(r + h * view_resolution_, 0));
+                        head.push_back(Point2d(r + h * view_resolution_, view_resolution_));
+                        head.push_back(Point2d(r + h * view_resolution_, -view_resolution_));
+                    }
+                }
+                else if (robots_[j].shape_ == "rectangle")
+                {
+                    double max_x = robots_[j].sizes_[1];
+                    int head_total = (robots_[j].sizes_[1] - robots_[j].sizes_[0]) / view_resolution_;
+                    for (int h = 0; h < head_total; h++)
+                    {
+                        head.push_back(Point2d(max_x + h * view_resolution_, 0));
+                    }
+                }
+                // robots_[j].draw_rgb(EnvMap_maps_.visual_map_, Vec3b(0, 0, 0), "world_map", head);
+            }
+        }
+    }
+}
+
+void ImgEnv::record_video()
+{
+    double resize_time = double(window_height_) / EnvMap_maps_.visual_map_.img_height_;
+    int window_width = int(resize_time * EnvMap_maps_.visual_map_.img_width_);
+    Mat visual_image;
+    resize(EnvMap_maps_.visual_map_.map_, visual_image, Size(window_width, window_height_));
+    for (int i = 0; i < robot_total_; i++)
+    {
+        Point2i begin, end;
+        EnvMap_maps_.visual_map_.world2map(Point2d(robots_[i].robot_pose_.x, robots_[i].robot_pose_.y), begin);
+        EnvMap_maps_.visual_map_.world2map(Point2d(robots_[i].target_pose_.x, robots_[i].target_pose_.y), end);
+        line(visual_image, Point(int(resize_time * begin.y), int(resize_time * begin.x)),
+                Point(int(resize_time * end.y), int(resize_time * end.x)), Vec3b(0,0,255), 2);
+        circle(visual_image, Point(int(resize_time * end.y), int(resize_time * end.x)), int(0.2/view_resolution_*resize_time), Vec3b(255,0, 0));
+        putText(visual_image, to_string(i), Point(int(resize_time * end.y)-5, int(resize_time * end.x)+5), 0, 0.5, Vec3b(255,0, 0), 2);
+    }
+    Mat final_image = cv::Mat::ones(window_height_, window_width + int(ceil((float(robot_total_) / show_robot_num_)))*show_image_height_, CV_8UC(3)) * 200;
+    Mat roi(final_image, Rect(0, 0, window_width, window_height_));
+    visual_image.copyTo(roi);
+    //int show_total = min(show_robot_num_, int(envs_[m].robots_name_.size()));
+    for (int i = 0; i < robot_total_; i++)
+    {
+        int cols = i / show_robot_num_;
+        int rows = i % show_robot_num_;
+        Mat roi(final_image, Rect(window_width + cols * show_image_height_, rows * show_image_height_, show_image_height_, show_image_height_));
+        Mat robot_img;
+        resize(robots_[i].view_map_.map_, robot_img, Size(show_image_height_, show_image_height_));
+        cvtColor(robot_img, roi, COLOR_GRAY2BGR);
+        rectangle(final_image, Point(window_width  + cols * show_image_height_, rows * show_image_height_),
+                    Point(window_width+ (cols+1) * show_image_height_-1, (rows+1) * show_image_height_), Vec3b(255,0,0), 2);
+        putText(final_image, to_string(i), Point(window_width  + cols * show_image_height_+5, (rows+1) * show_image_height_-5), 0, 0.5, Vec3b(255,0, 0), 2);
+    }
+
+    // 初始化 VideoWriter
+    if (!is_video_initialized_) {
+        // 确定视频文件的分辨率
+        int video_width = window_width + int(ceil(float(robot_total_) / show_robot_num_)) * show_image_height_;
+        int video_height = window_height_;
+
+        // 初始化 VideoWriter
+        video_writer_.open(video_path_ + video_name_ + "_" + to_string(episode_num_) + ".avi", VideoWriter::fourcc('M', 'J', 'P', 'G'), 10, Size(video_width, video_height), true);
+        if (!video_writer_.isOpened()) {
+            cerr << "Error: Could not open video writer" << endl;
+            return;
+        }
+        is_video_initialized_ = true;
+    }
+
+    // 将当前帧写入视频
+    if (video_writer_.isOpened()) {
+        video_writer_.write(final_image);
+    }
+}
+
+void ImgEnv::show_gui()
+{
+    double resize_time = double(window_height_) / EnvMap_maps_.visual_map_.img_height_;
+    int window_width = int(resize_time * EnvMap_maps_.visual_map_.img_width_);
+    Mat visual_image;
+    resize(EnvMap_maps_.visual_map_.map_, visual_image, Size(window_width, window_height_));
+    for (int i = 0; i < robot_total_; i++)
+    {
+        Point2i begin, end;
+        EnvMap_maps_.visual_map_.world2map(Point2d(robots_[i].robot_pose_.x, robots_[i].robot_pose_.y), begin);
+        EnvMap_maps_.visual_map_.world2map(Point2d(robots_[i].target_pose_.x, robots_[i].target_pose_.y), end);
+        // line(visual_image, Point(int(resize_time * begin.y), int(resize_time * begin.x)),
+        //         Point(int(resize_time * end.y), int(resize_time * end.x)), Vec3b(0,0,255), 2);
+        circle(visual_image, Point(int(resize_time * end.y), int(resize_time * end.x)), int(0.2/view_resolution_*resize_time), Vec3b(255,0, 0));
+        putText(visual_image, to_string(i), Point(int(resize_time * end.y)-5, int(resize_time * end.x)+5), 0, 0.5, Vec3b(255,0, 0), 2);
+    }
+    Mat final_image = cv::Mat::ones(window_height_, window_width + int(ceil((float(robot_total_) / show_robot_num_)))*show_image_height_, CV_8UC(3)) * 200;
+    Mat roi(final_image, Rect(0, 0, window_width, window_height_));
+    visual_image.copyTo(roi);
+    //int show_total = min(show_robot_num_, int(envs_[m].robots_name_.size()));
+    for (int i = 0; i < robot_total_; i++)
+    {
+        int cols = i / show_robot_num_;
+        int rows = i % show_robot_num_;
+        Mat roi(final_image, Rect(window_width + cols * show_image_height_, rows * show_image_height_, show_image_height_, show_image_height_));
+        Mat robot_img;
+        resize(robots_[i].view_map_.map_, robot_img, Size(show_image_height_, show_image_height_));
+        cvtColor(robot_img, roi, COLOR_GRAY2BGR);
+        rectangle(final_image, Point(window_width  + cols * show_image_height_, rows * show_image_height_),
+                    Point(window_width+ (cols+1) * show_image_height_-1, (rows+1) * show_image_height_), Vec3b(255,0,0), 2);
+        putText(final_image, to_string(i), Point(window_width  + cols * show_image_height_+5, (rows+1) * show_image_height_-5), 0, 0.5, Vec3b(255,0, 0), 2);
+    }
+    imshow(env_name, final_image);
+    waitKey(1);
+}
+
+
+
+
+
+EnvService::EnvService(){
+    nh_ = ros::NodeHandle("~");
+
+    reset_env_srv = nh_.advertiseService("reset_image_env", &EnvService::reset_env, this);
+    step_srv = nh_.advertiseService("step_image_env", &EnvService::step_env, this);
+    init_env_srv = nh_.advertiseService("init_image_env", &EnvService::init_env, this);
+    ep_end_srv = nh_.advertiseService("ep_end_image_env", &EnvService::end_ep, this);
+
+}
+
+bool EnvService::init_env(comn_pkg::InitEnv::Request &req, comn_pkg::InitEnv::Response &res)
+{
+    //for (int i=0; i < req.env.size(); i++){
+    ImgEnv_env = ImgEnv();
+
+    ImgEnv_env._init_param_from_py(req);
+
+    ImgEnv_env._init(req.env);
+        //envs_.push_back(ImgEnv_env);
+    //}
+    return true;
+}
+bool EnvService::reset_env(comn_pkg::ResetEnv::Request &req, comn_pkg::ResetEnv::Response &res)
+{
+//    ROS_INFO("Reset env %d", req.env_id);
+    ImgEnv_env._reset(req, res);
+    // view robot 问题
+    return true;
+}
+bool EnvService::step_env(comn_pkg::StepEnv::Request &req, comn_pkg::StepEnv::Response &res)
+{
+    ImgEnv_env._step(req, res);
+    return true;
+}
+bool EnvService::end_ep(comn_pkg::EndEp::Request &req, comn_pkg::EndEp::Response &res)
+{
+    ImgEnv_env._end_ep(req, res);
+    return true;
+}
+
+
+
+
+ImgEnv::~ImgEnv()
+{
+//    for (int i = 0; i < thread_total_; i++)
+//    {
+//        thread_status_[i] = -1;
+//        delete thread_vector_[i];
+//        thread_vector_[i] = NULL;
+//    }
+//    for (int j = 0; j < env_total_; j++)
+//    {
+//        for (auto a : pedscenes_[j]->getAllAgents()) { delete a; };
+//        for (auto w : pedscenes_[j]->getAllWaypoints()) { delete w; };
+//        for (auto o : pedscenes_[j]->getAllObstacles()) { delete o; };
+//        delete pedscenes_[j];
+//        delete RVOscenes_[j];
+//        delete ERVOscenes_[j];
+//    }
+}

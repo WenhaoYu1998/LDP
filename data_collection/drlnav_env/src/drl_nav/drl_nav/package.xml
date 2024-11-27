@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>drl_nav</name>
+  <version>0.0.0</version>
+  <description>The drl_nav package</description>
+
+  <maintainer email="cgd@todo.todo">cgd</maintainer>
+
+
+  <!-- One license tag required, multiple allowed, one license per tag -->
+  <!-- Commonly used license strings: -->
+  <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+    <exec_depend>comn_pkg</exec_depend>
+<!--    <exec_depend>vfh_planner</exec_depend>-->
+<!--    <exec_depend>vfh_node</exec_depend>-->
+<!--    <exec_depend>drl_stage_ros</exec_depend>-->
+<!--    <exec_depend>scan_img</exec_depend>-->
+<!--    <exec_depend>hokuyo_node</exec_depend>-->
+<!--    <exec_depend>joy_control</exec_depend>-->
+<!--    <exec_depend>key_control</exec_depend>-->
+<!--    <exec_depend>vel_interpolation</exec_depend>-->
+    <!-- <exec_depend>gz_pkg</exec_depend> -->
+<!--    <exec_depend>global_path_planner</exec_depend>-->
+<!--    <exec_depend>global_global_path_planner</exec_depend>-->
+    <exec_depend>img_env</exec_depend>
+<!--    <exec_depend>pc_img</exec_depend>-->
+<!--    <exec_depend>grid_img</exec_depend>-->
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <metapackage />
+  </export>
+</package>

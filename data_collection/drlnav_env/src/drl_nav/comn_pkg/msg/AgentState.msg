@@ -1,0 +1,20 @@
+sensor_msgs/Image view_map
+sensor_msgs/Image global_map
+float32[] state
+float32[] laser
+float64[] pose
+float64[] target_pose
+int16[] pose_visual
+int16[] target_pose_visual
+float32[] hits_x
+float32[] hits_y
+float32[] angular_map
+float32[] run_trajectory_points_episode_x
+float32[] run_trajectory_points_episode_y
+int8 is_collision
+bool is_arrive
+int16 refresh_num_episode
+float32 run_dis_episode
+float64[] velocity_a
+comn_pkg/PedInfo[] pedinfo
+# may need catkin clean -b first
