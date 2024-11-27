@@ -113,7 +113,7 @@ Activate conda environment.
 
 Launch training with seed 42 on GPU 0.
 ```console
-(robodiff)[diffusion_policy]$ python train.py --config-dir=. --config-name=image_pusht_diffusion_policy_cnn.yaml training.seed=42 training.device=cuda:0 hydra.run.dir='data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}'
+(ldp)[diffusion_policy]$ python train.py --config-dir=./config --config-name=image_nav_diffusion_policy_cnn.yaml training.seed=42 training.device=cuda:0 hydra.run.dir='data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}'
 ```
 
 This will create a directory in format `data/outputs/yyyy.mm.dd/hh.mm.ss_<method_name>_<task_name>` where configs, logs and checkpoints are written to. 
@@ -138,3 +138,4 @@ We mainly changed the following files:
 
 
 ## 🙏 Acknowledgement
+Our policy code is based on the [Diffusion Policy](https://github.com/real-stanford/diffusion_policy) projects. We thank the authors for their excellent work.
