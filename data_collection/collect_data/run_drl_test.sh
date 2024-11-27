@@ -1,22 +1,5 @@
 #!/bin/bash
 
-#DOMAIN=finger
-#TASK=spin
-#ACTION_REPEAT=2
-#DOMAIN=cartpole
-#TASK=swingup
-#ACTION_REPEAT=8
-#DOMAIN=walker
-#TASK=walk
-#ACTION_REPEAT=2
-#DOMAIN=cheetah
-#TASK=run
-#ACTION_REPEAT=4
-# DOMAIN=reacher
-# TASK=easy
-# DOMAIN=ball_in_cup
-# TASK=catch
-
 DOMAIN=drl_env
 
 SEED=2
@@ -49,6 +32,6 @@ python train_drlenv_test.py \
     --load_encoder './model/static4_ped4/actor_2256302.pt' \
     --preference 'local' \
     --output_path 'local_maze.pkl' \
-    --env_config 'envs/cfg/circle.yaml' \
+    --env_config 'envs/cfg/maze.yaml' \
     --save_episode 1000 \
     --seed ${SEED} $@ \

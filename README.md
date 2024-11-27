@@ -120,11 +120,43 @@ This will create a directory in format `data/outputs/yyyy.mm.dd/hh.mm.ss_<method
 
 ### 🆕 Evaluate Checkpoints
 
-Coming soon...
-<!-- Run the evaluation script:
+To evaluate a trained checkpoint, you can use the `eval.py` script.
+
+##### Static Scenarios
+
 ```console
-(robodiff)[diffusion_policy]$ python eval.py --checkpoint data/0550-test_mean_score=0.969.ckpt --output_dir data/pusht_eval_output --device cuda:0
-``` -->
+# Open a new terminal
+[LDP]$ cd evaluation/drlnav_env
+[drlnav_env]$ source devel/setup.bash
+[drlnav_env]$ roslaunch img_env test.launch
+```
+
+```console
+# Open another new terminal
+[LDP]$ cd evaluation/drlnav_env
+[drlnav_env]$ source devel/setup.bash # NOTE: This source instruction is very important.
+[drlnav_env]$ cd ../local-diffusion-planner-only-static
+[local-diffusion-planner-only-static]$ python eval.py --checkpoint data/outputs/checkpoint/ldp_static.ckpt --output_dir data/nav_output --yaml envs/cfg/circle.yaml --model_type diffusion --extro_condition gpath --device cuda:0
+```
+
+##### Other Scenarios
+
+```console
+# Open a new terminal
+[LDP]$ cd evaluation/drlnav_env
+[drlnav_env]$ source devel/setup.bash
+[drlnav_env]$ roslaunch img_env test.launch
+```
+
+```console
+# Open another new terminal
+[LDP]$ cd evaluation/drlnav_env
+[drlnav_env]$ source devel/setup.bash # NOTE: This source instruction is very important.
+[drlnav_env]$ cd ../local-diffusion-planner
+[local-diffusion-planner]$ python eval.py --checkpoint data/outputs/checkpoint/ldp_maze.ckpt --output_dir data/nav_output --yaml envs/cfg/maze.yaml --model_type diffusion --extro_condition gpath --device cuda:0
+```
+
+Tips: In file `test.launch`, `<node pkg = "img_env" type = "img_env_node" name = "image_ped_circle0" output = "screen" respawn = "true" > </node>` represents an environment node. Therefore, the `node_id` in the last line of the `*.yaml` file corresponds to the node. By modifying this option, multiple algorithms or models can be tested simultaneously.
 
 ### 🔑 Supplement
 Our project code is based on the [Diffusion Policy](https://github.com/wjh720/Diffusion_Policy_Learning) projects. 

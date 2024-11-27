@@ -1,0 +1,29 @@
+#VFH
+param_a: 50.0
+param_b: 0.75
+param_c: 3.0
+max_v: 0.6
+min_v: 0.0
+max_rv: 0.9
+robot_radius: 0.2
+safe_dist: 0.2
+goal_tolerance: 0.3
+param_mu1: 7
+param_mu2: 3
+param_mu3: 3
+sector_angle: 0.087
+window_size: 4.0
+wide_angle: 0.6
+threshold_high: 15000.0
+threshold_low: 2000
+clutter_const: 66000
+#names
+base_fram_id: turtlerobot0/base_link
+goal_fram_id: turtlerobot0/odom
+vel_topic_name: turtlerobot0/cmd_vel
+#wait
+delta: 0.05
+change_dist: 0.3
+wait_x: 2.0
+wait_y: 0.6
+use_wait: false

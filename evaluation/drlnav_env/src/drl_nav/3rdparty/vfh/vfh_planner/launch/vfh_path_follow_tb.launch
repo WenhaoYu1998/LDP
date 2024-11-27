@@ -1,0 +1,9 @@
+<launch>
+  <arg name="debug" default="false"/>
+  <arg if="$(arg debug)" name="launch_prefix" value="xterm -rv -e gdb -ex run -args"/>
+  <arg unless="$(arg debug)" name="launch_prefix" value=""/>
+
+  <node name="vfh_planner" pkg="vfh_planner" type="vfh_path_follower_node" output ="screen" launch-prefix="$(arg launch_prefix)">
+    <rosparam command="load" file="$(find vfh_planner)/cfg/vfh_tb.yaml" />
+  </node>
+</launch>
