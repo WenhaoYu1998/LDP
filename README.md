@@ -2,7 +2,7 @@
 
 [[Project page]](https://github.com/WenhaoYu1998/LDP)
 [[Paper]](https://arxiv.org/abs/2407.01950)
-[[Data]](https://github.com/WenhaoYu1998/LDP)
+[[Data]](https://drive.google.com/drive/folders/1ZsuU40BiksTwMriXqyw3BRMW5d5orpB_?usp=sharing)
 
 [Wenhao Yu](http://wenhaoyu1998.github.io/)<sup>1</sup>,
 [Jie Peng]()<sup>1</sup>,
