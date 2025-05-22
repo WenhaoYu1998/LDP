@@ -60,8 +60,23 @@ def process_data_entries(data):
     
     return raw_data_dict
 
-def create_zarr_array(data_dict, key, file_name_without_ext):
+def create_zarr_array(data_dict, key, file_name_without_ext, first_key=False):
     """Create and write data to zarr array with specified configuration"""
+    mode = 'w' if first_key else 'a'
+    # Create zarr group in root directory
+    root = zarr.open(f'{file_name_without_ext}.zarr', mode=mode)
+
+    # Create data and meta subgroup
+    if first_key:
+        root.attrs['zarr_format'] = 2
+        data_group = root.create_group('data')
+        meta_group = root.create_group('meta')
+        data_group.attrs['zarr_format'] = 2
+        meta_group.attrs['zarr_format'] = 2
+    else:
+        data_group = root['data']
+        meta_group = root['meta']
+
     # Load config from yaml
     with open(f'config/{key}_config.yaml', 'r') as file:
         configs = yaml.safe_load(file)
@@ -74,20 +89,22 @@ def create_zarr_array(data_dict, key, file_name_without_ext):
         shuffle=configs['compressor']['shuffle']
     )
     
-    # Define zarr path based on data type
-    zarr_paths = {
-        "done": f'{file_name_without_ext}.zarr/meta/episode_ends',
-        "obs_data": f'{file_name_without_ext}.zarr/data/img',
-        "action_data": f'{file_name_without_ext}.zarr/data/action',
-        "vector_state": f'{file_name_without_ext}.zarr/data/state',
-        "global_path": f'{file_name_without_ext}.zarr/data/gpath',
-        "global_map": f'{file_name_without_ext}.zarr/data/gmap'
+    # Define array path mappings
+    array_paths = {
+        "done": (meta_group, 'episode_ends'),
+        "obs_data": (data_group, 'img'),
+        "action_data": (data_group, 'action'),
+        "vector_state": (data_group, 'state'),
+        "global_path": (data_group, 'gpath'),
+        "global_map": (data_group, 'gmap')
     }
+
+    # Get the group and array name corresponding the current data
+    parent_group, array_name = array_paths[key]
     
-    # Create and write to zarr array
-    z = zarr.open(
-        zarr_paths[key],
-        mode='w',
+    # 在对应组中创建数组
+    z = parent_group.create_dataset(
+        array_name,
         shape=tuple(configs['shape']),
         chunks=tuple(configs['chunks']),
         dtype=configs['dtype'],
@@ -118,5 +135,5 @@ if __name__ == "__main__":
     data = load_pickle_data(pkl_file_path)
     raw_data_dict = process_data_entries(data)
     keys = ["obs_data", "action_data", "vector_state", "global_path", "global_map", "done"]
-    for key in keys:
-        create_zarr_array(raw_data_dict, key, file_name_without_ext)
+    for i, key in enumerate(keys):
+        create_zarr_array(raw_data_dict, key, file_name_without_ext, first_key=(i==0))
